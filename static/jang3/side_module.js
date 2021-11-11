@@ -1,5 +1,3 @@
-console.log("done!");
-
 const importObject = {
     env: {
         __memory_base: 0,
