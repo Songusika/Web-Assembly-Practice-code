@@ -35,7 +35,7 @@ function setErrorMessage(error) {
 
 function onClickSave() {
     let errorMessage = "";
-    const errorMessagePointer = Module._malloc(256);
+    const errorMessagePointer = Module._malloc(256); //오류메시지를 담을 버퍼(포인터) -> 웹 어셈블리 모듈에서 사용함
 
     const name = document.getElementById("name").value;
     const categoryId = getSelectedCategoryId();

@@ -3,10 +3,10 @@
 
 //엠스크립튼 컴파일러로 컴파일시에만 사용하는 헤더파일
 #ifdef __EMSCRIPTEN__
-    #include <emscripten.h>
+    #include <emscripten.h>  //런타임에는 사용하지 않는 헤더파일
 #endif
 
-#ifdef __cplusplus
+#ifdef __cplusplus //c++ 파일이면 아래 구문 추가
 extern "C"
 { //네임 맹글러를 적용하지 않음 (함수 오버로드시 컴파일 단계에서 이름을 바꾸는 것)
 #endif
