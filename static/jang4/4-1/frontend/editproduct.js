@@ -64,9 +64,12 @@ function validateName(name, errorMessagePointer) {
 
 function validateCategory(categoryId, errorMessagePointer) {
     const arrayLength = VALID_CATEGORY_IDS.length;
-    const bytesPerElement = Module.HEAP32.BYTES_PER_ELEMENT;
+    const bytesPerElement = Module.HEAP32.BYTES_PER_ELEMENT;    //4바이트
+
     const arrayPointer = Module._malloc((arrayLength * bytesPerElement));
+    //HEAP8 인덱스를 얻어옴 
     Module.HEAP32.set(VALID_CATEGORY_IDS, (arrayPointer / bytesPerElement));
+    //HEAP32로 접근해야하므로 /4 해줌 -> 시작인덱스를 똑같이 맞춰주기 위해서 -> 빅 엔디안/리틀 엔디안 개념
 
     const isValid = Module.ccall('ValidateCategory',
         'number',
