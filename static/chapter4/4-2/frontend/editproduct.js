@@ -22,11 +22,6 @@ function initializePage() {
     }
 
     const importObject = {
-        env: {
-            UpdateHostAboutError: (errorMessagePointer) => {
-                setErrorMessage(getStringFromMemory(errorMessagePointer));
-            },
-        },
         wasi_snapshot_preview1: {
             proc_exit: (value) => { }
         }
@@ -53,13 +48,21 @@ function setErrorMessage(error) {
 }
 
 function onClickSave() {
-    // Clear any error message that might already be displayed from a previous click
-    setErrorMessage("");
+    let errorMessage = "";
+    const errorMessagePointer = moduleExports.create_buffer(256);
 
     const name = document.getElementById("name").value;
     const categoryId = getSelectedCategoryId();
 
-    if (validateName(name) && validateCategory(categoryId)) {
+    if (!validateName(name, errorMessagePointer) ||
+        !validateCategory(categoryId, errorMessagePointer)) {
+        errorMessage = getStringFromMemory(errorMessagePointer);
+    }
+
+    moduleExports.free_buffer(errorMessagePointer);
+
+    setErrorMessage(errorMessage);
+    if (errorMessage === "") {
         // everything is ok...we can pass the data to the server-side code
     }
 }
@@ -86,18 +89,18 @@ function copyStringToMemory(value, memoryOffset) {
     bytes.set(new TextEncoder().encode((value + "\0")), memoryOffset);
 }
 
-function validateName(name) {
+function validateName(name, errorMessagePointer) {
     const namePointer = moduleExports.create_buffer((name.length + 1));
     copyStringToMemory(name, namePointer);
 
-    const isValid = moduleExports.ValidateName(namePointer, MAXIMUM_NAME_LENGTH);
+    const isValid = moduleExports.ValidateName(namePointer, MAXIMUM_NAME_LENGTH, errorMessagePointer);
 
     moduleExports.free_buffer(namePointer);
 
     return (isValid === 1);
 }
 
-function validateCategory(categoryId) {
+function validateCategory(categoryId, errorMessagePointer) {
     const categoryIdPointer = moduleExports.create_buffer((categoryId.length + 1));
     copyStringToMemory(categoryId, categoryIdPointer);
 
@@ -108,7 +111,7 @@ function validateCategory(categoryId) {
     const bytesForArray = new Int32Array(moduleMemory.buffer);
     bytesForArray.set(VALID_CATEGORY_IDS, (arrayPointer / bytesPerElement));
 
-    const isValid = moduleExports.ValidateCategory(categoryIdPointer, arrayPointer, arrayLength);
+    const isValid = moduleExports.ValidateCategory(categoryIdPointer, arrayPointer, arrayLength, errorMessagePointer);
 
     moduleExports.free_buffer(arrayPointer);
     moduleExports.free_buffer(categoryIdPointer);
