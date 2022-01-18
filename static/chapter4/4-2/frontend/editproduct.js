@@ -29,6 +29,8 @@ function initializePage() {
 
     WebAssembly.instantiateStreaming(fetch("validate.wasm"), importObject).then(result => {
         moduleExports = result.instance.exports;
+        console.log(result)
+        console.log(result.instance)
         moduleMemory = moduleExports.memory;
     });
 }
