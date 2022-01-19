@@ -34,14 +34,13 @@ function setErrorMessage(error) {
 }
 
 function onClickSave() {
-    // Clear any error message that might already be displayed from a previous click
     setErrorMessage("");
 
     const name = document.getElementById("name").value;
     const categoryId = getSelectedCategoryId();
 
     if (validateName(name) && validateCategory(categoryId)) {
-        // everything is ok...we can pass the data to the server-side code    
+       //서버에 데이터 전달 코드 작성
     }
 }
 

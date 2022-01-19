@@ -6,9 +6,6 @@ const initialData = {
 const MAXIMUM_NAME_LENGTH = 50;
 const VALID_CATEGORY_IDS = [100, 101];
 
-let moduleMemory = null;
-let moduleExports = null;
-
 function initializePage() {
     document.getElementById("name").value = initialData.name;
 
@@ -20,19 +17,6 @@ function initializePage() {
             break;
         }
     }
-
-    const importObject = {
-        wasi_snapshot_preview1: {
-            proc_exit: (value) => { }
-        }
-    };
-
-    WebAssembly.instantiateStreaming(fetch("validate.wasm"), importObject).then(result => {
-        moduleExports = result.instance.exports;
-        console.log(result)
-        console.log(result.instance)
-        moduleMemory = moduleExports.memory;
-    });
 }
 
 function getSelectedCategoryId() {
@@ -51,72 +35,48 @@ function setErrorMessage(error) {
 
 function onClickSave() {
     let errorMessage = "";
-    const errorMessagePointer = moduleExports.create_buffer(256);
+    const errorMessagePointer = Module._malloc(256); //오류메시지를 담을 버퍼(포인터) -> 웹 어셈블리 모듈에서 사용함
 
     const name = document.getElementById("name").value;
     const categoryId = getSelectedCategoryId();
 
     if (!validateName(name, errorMessagePointer) ||
         !validateCategory(categoryId, errorMessagePointer)) {
-        errorMessage = getStringFromMemory(errorMessagePointer);
+        errorMessage = Module.UTF8ToString(errorMessagePointer);
     }
 
-    moduleExports.free_buffer(errorMessagePointer);
+    Module._free(errorMessagePointer);
 
     setErrorMessage(errorMessage);
     if (errorMessage === "") {
-        // everything is ok...we can pass the data to the server-side code
+        //서버 데이터 전달
     }
-}
-
-function getStringFromMemory(memoryOffset) {
-    let returnValue = "";
-
-    const size = 256;
-    const bytes = new Uint8Array(moduleMemory.buffer, memoryOffset, size);
-
-    let character = "";
-    for (let i = 0; i < size; i++) {
-        character = String.fromCharCode(bytes[i]);
-        if (character === "\0") { break; }
-
-        returnValue += character;
-    }
-
-    return returnValue;
-}
-
-function copyStringToMemory(value, memoryOffset) {
-    const bytes = new Uint8Array(moduleMemory.buffer);
-    bytes.set(new TextEncoder().encode((value + "\0")), memoryOffset);
 }
 
 function validateName(name, errorMessagePointer) {
-    const namePointer = moduleExports.create_buffer((name.length + 1));
-    copyStringToMemory(name, namePointer);
-
-    const isValid = moduleExports.ValidateName(namePointer, MAXIMUM_NAME_LENGTH, errorMessagePointer);
-
-    moduleExports.free_buffer(namePointer);
+    const isValid = Module.ccall('ValidateName',
+        'number',
+        ['string', 'number', 'number'],
+        [name, MAXIMUM_NAME_LENGTH, errorMessagePointer]);
 
     return (isValid === 1);
 }
 
 function validateCategory(categoryId, errorMessagePointer) {
-    const categoryIdPointer = moduleExports.create_buffer((categoryId.length + 1));
-    copyStringToMemory(categoryId, categoryIdPointer);
-
     const arrayLength = VALID_CATEGORY_IDS.length;
-    const bytesPerElement = Int32Array.BYTES_PER_ELEMENT;
-    const arrayPointer = moduleExports.create_buffer((arrayLength * bytesPerElement));
+    const bytesPerElement = Module.HEAP32.BYTES_PER_ELEMENT;    //4바이트
 
-    const bytesForArray = new Int32Array(moduleMemory.buffer);
-    bytesForArray.set(VALID_CATEGORY_IDS, (arrayPointer / bytesPerElement));
+    const arrayPointer = Module._malloc((arrayLength * bytesPerElement));
+    //HEAP8 인덱스를 얻어옴 
+    Module.HEAP32.set(VALID_CATEGORY_IDS, (arrayPointer / bytesPerElement));
+    //HEAP32로 접근해야하므로 /4 해줌 -> 시작인덱스를 똑같이 맞춰주기 위해서 -> 빅 엔디안/리틀 엔디안 개념
 
-    const isValid = moduleExports.ValidateCategory(categoryIdPointer, arrayPointer, arrayLength, errorMessagePointer);
+    const isValid = Module.ccall('ValidateCategory',
+        'number',
+        ['string', 'number', 'number', 'number'],
+        [categoryId, arrayPointer, arrayLength, errorMessagePointer]);
 
-    moduleExports.free_buffer(arrayPointer);
-    moduleExports.free_buffer(categoryIdPointer);
+    Module._free(arrayPointer);
 
     return (isValid === 1);
 }
