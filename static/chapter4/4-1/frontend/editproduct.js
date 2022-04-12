@@ -34,36 +34,47 @@ function setErrorMessage(error) {
 }
 
 function onClickSave() {
-    // Clear any error message that might already be displayed from a previous click
-    setErrorMessage("");
+    let errorMessage = "";
+    const errorMessagePointer = Module._malloc(256); //오류메시지를 담을 버퍼(포인터) -> 웹 어셈블리 모듈에서 사용함
 
     const name = document.getElementById("name").value;
     const categoryId = getSelectedCategoryId();
 
-    if (validateName(name) && validateCategory(categoryId)) {
-        // everything is ok...we can pass the data to the server-side code    
+    if (!validateName(name, errorMessagePointer) ||
+        !validateCategory(categoryId, errorMessagePointer)) {
+        errorMessage = Module.UTF8ToString(errorMessagePointer);
+    }
+
+    Module._free(errorMessagePointer);
+
+    setErrorMessage(errorMessage);
+    if (errorMessage === "") {
+        //서버 데이터 전달
     }
 }
 
-function validateName(name) {
+function validateName(name, errorMessagePointer) {
     const isValid = Module.ccall('ValidateName',
         'number',
-        ['string', 'number'],
-        [name, MAXIMUM_NAME_LENGTH]);
+        ['string', 'number', 'number'],
+        [name, MAXIMUM_NAME_LENGTH, errorMessagePointer]);
 
     return (isValid === 1);
 }
 
-function validateCategory(categoryId) {
+function validateCategory(categoryId, errorMessagePointer) {
     const arrayLength = VALID_CATEGORY_IDS.length;
-    const bytesPerElement = Module.HEAP32.BYTES_PER_ELEMENT;
+    const bytesPerElement = Module.HEAP32.BYTES_PER_ELEMENT;    //4바이트
+
     const arrayPointer = Module._malloc((arrayLength * bytesPerElement));
+    //HEAP8 인덱스를 얻어옴 
     Module.HEAP32.set(VALID_CATEGORY_IDS, (arrayPointer / bytesPerElement));
+    //HEAP32로 접근해야하므로 /4 해줌 -> 시작인덱스를 똑같이 맞춰주기 위해서 -> 빅 엔디안/리틀 엔디안 개념
 
     const isValid = Module.ccall('ValidateCategory',
         'number',
-        ['string', 'number', 'number'],
-        [categoryId, arrayPointer, arrayLength]);
+        ['string', 'number', 'number', 'number'],
+        [categoryId, arrayPointer, arrayLength, errorMessagePointer]);
 
     Module._free(arrayPointer);
 
